@@ -8,13 +8,6 @@ locals {
   auth_url = var.auth_mode == "lambda" ? var.auth_function_url : "http://soat-auth-local.${local.namespace}.svc.cluster.local:8080"
 }
 
-check "lambda_mode_has_url" {
-  assert {
-    condition     = var.auth_mode != "lambda" || startswith(var.auth_function_url, "https://")
-    error_message = "auth_mode = lambda exige auth_function_url (https://...lambda-url...)."
-  }
-}
-
 # ---------------------------------------------------------------------------
 # Segredo dos JWTs do ambiente. Unica fonte: a aplicacao o recebe pelo Secret
 # soat-jwt, o Kong pelos consumers, e a Lambda pelo SSM. Ninguem o digita.

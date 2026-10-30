@@ -56,6 +56,21 @@ done
 # 4: tres transicoes ilegais na mesma OS (ex.: RECEBIDA -> FINALIZADA)
 ```
 
+## Conferências na ativação
+
+- **Nome da métrica no New Relic.** O app emite `soat_integration_errors`, o exporter Prometheus
+  acrescenta `_total`, e o receiver do Collector pode removê-lo de novo. Antes de dar o alerta 3 por
+  verificado, confira o nome real:
+  `FROM Metric SELECT uniques(metricName) WHERE metricName LIKE 'soat_%' SINCE 1 hour ago`.
+  Se vier sem `_total`, ajuste a query em `alerts.tf` e no painel.
+- **Primeiro ponto de cada série.** O Collector converte cumulativo em delta com
+  `initial_value = keep`, então o primeiro webhook recusado de um pod já conta. O efeito colateral:
+  reiniciar o `otel-gateway` reemite o acumulado de cada pod como um delta só, e pode abrir o
+  alerta 3 uma vez se algum pod já somava 5 ou mais recusas.
+- **Rate limit do `/auth/cpf`.** O tráfego entra pelo mapeamento de porta do Docker, então todo
+  cliente chega ao Kong com o mesmo IP: o limite de 10/min vale para todos juntos. Não rode o e2e
+  e uma demonstração manual no mesmo minuto.
+
 ## Limiares
 
 Não há histórico para calibrar: nada era medido antes desta fase. Os valores acima são

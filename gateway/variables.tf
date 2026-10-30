@@ -23,6 +23,11 @@ variable "auth_function_url" {
   description = "Function URL da autenticacao por CPF (output do soat-auth-lambda). Obrigatoria com auth_mode = lambda."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.auth_mode != "lambda" || startswith(var.auth_function_url, "https://")
+    error_message = "auth_mode = lambda exige auth_function_url (https://...lambda-url...)."
+  }
 }
 
 variable "kong_image" {

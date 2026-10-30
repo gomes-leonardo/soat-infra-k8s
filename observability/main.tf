@@ -35,13 +35,6 @@ locals {
   }]) : "[]")
 }
 
-check "newrelic_has_key" {
-  assert {
-    condition     = !var.newrelic_enabled || length(var.newrelic_license_key) > 0
-    error_message = "newrelic_enabled = true exige newrelic_license_key."
-  }
-}
-
 resource "kubernetes_secret" "newrelic" {
   count = var.newrelic_enabled ? 1 : 0
 
@@ -159,7 +152,11 @@ resource "helm_release" "gateway" {
           limit_mib       = 256
           spike_limit_mib = 64
         }
-        cumulativetodelta = {}
+        # keep: o scrape Prometheus da a uma serie nova start time igual ao
+        # timestamp, e o padrao (auto) descartaria o primeiro ponto. O primeiro
+        # webhook recusado de um pod sumiria do alerta. Custo: reiniciar o
+        # gateway reemite o acumulado de cada pod como um delta so.
+        cumulativetodelta = { initial_value = "keep" }
       }
       exporters = local.exporters
       service = {
@@ -239,8 +236,11 @@ resource "helm_release" "agent" {
             },
           ]
         }
+        # Mesmo motivo do --kubelet-insecure-tls do metrics-server: o kubelet
+        # do Kind serve certificado auto-assinado.
         kubeletstats = {
-          collection_interval = "30s"
+          collection_interval  = "30s"
+          insecure_skip_verify = true
         }
       }
       processors = {

@@ -71,6 +71,8 @@ services:
 %{ if origin_secret != "" ~}
           - name: request-transformer
             config:
+              remove:
+                headers: ["x-soat-origin"]
               add:
                 headers: ["x-soat-origin:${origin_secret}"]
 %{ endif ~}

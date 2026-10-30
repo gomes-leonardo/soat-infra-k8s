@@ -9,6 +9,13 @@ variable "newrelic_license_key" {
   type        = string
   default     = ""
   sensitive   = true
+
+  # validation, nao check: check so avisa, e o apply seguiria com a chave vazia,
+  # o exporter levaria 403 e toda a telemetria se perderia em silencio.
+  validation {
+    condition     = !var.newrelic_enabled || length(var.newrelic_license_key) > 0
+    error_message = "newrelic_enabled = true exige newrelic_license_key."
+  }
 }
 
 variable "newrelic_otlp_endpoint" {

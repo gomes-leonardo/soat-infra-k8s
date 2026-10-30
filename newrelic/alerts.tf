@@ -82,7 +82,7 @@ resource "newrelic_nrql_alert_condition" "webhook_unauthorized" {
     operator              = "above_or_equals"
     threshold             = 5
     threshold_duration    = 300
-    threshold_occurrences = "all"
+    threshold_occurrences = "at_least_once"
   }
 
   aggregation_window             = 300
@@ -109,7 +109,7 @@ resource "newrelic_nrql_alert_condition" "transition_rejected" {
     operator              = "above_or_equals"
     threshold             = 3
     threshold_duration    = 900
-    threshold_occurrences = "all"
+    threshold_occurrences = "at_least_once"
   }
 
   aggregation_window             = 900

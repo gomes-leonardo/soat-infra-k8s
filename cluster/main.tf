@@ -74,6 +74,31 @@ resource "kubernetes_resource_quota" "env" {
   }
 }
 
+# Com ResourceQuota de CPU e memoria, todo pod sem requests e recusado. O
+# LimitRange da um padrao para quem nao declarar (Jobs de migration, stand-ins).
+resource "kubernetes_limit_range" "env" {
+  for_each = local.gateway_ports
+
+  metadata {
+    name      = "env-defaults"
+    namespace = kubernetes_namespace.this[each.key].metadata[0].name
+  }
+
+  spec {
+    limit {
+      type = "Container"
+      default_request = {
+        cpu    = "50m"
+        memory = "64Mi"
+      }
+      default = {
+        cpu    = "500m"
+        memory = "512Mi"
+      }
+    }
+  }
+}
+
 # O Kind nao traz metrics-server, e sem ele o HPA nao tem CPU para comparar.
 # --kubelet-insecure-tls porque o kubelet do Kind usa certificado
 # auto-assinado; aceitavel num cluster local e descartavel.
