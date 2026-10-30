@@ -1,0 +1,16 @@
+# Configuracao do backend remoto. Copie para backend.hcl e use:
+#
+#   terraform init -backend-config=backend.hcl
+#
+# O bucket e a tabela sao criados por infra/bootstrap, que roda antes deste
+# ambiente. backend.hcl esta no .gitignore — o nome do bucket costuma conter o
+# id da conta.
+
+bucket = "soat-tech-challenge-tfstate-000000000000"
+key    = "envs/aws/dev/terraform.tfstate"
+region = "us-east-1"
+
+# Trava de concorrencia: impede dois applies simultaneos corromperem o state.
+dynamodb_table = "soat-tech-challenge-tfstate-lock"
+
+encrypt = true

@@ -1,0 +1,91 @@
+_format_version: "3.0"
+_transform: true
+
+# Gerado pelo Terraform (gateway/main.tf). Deny-by-default: nao ha rota
+# catch-all, entao caminho nao listado aqui recebe 404 do proprio Kong.
+
+services:
+  - name: app
+    url: ${app_url}
+    routes:
+      - name: public-login
+        paths: ["/auth/login"]
+        methods: ["POST"]
+        strip_path: false
+      - name: public-health
+        paths: ["/health"]
+        methods: ["GET"]
+        strip_path: false
+      - name: public-consult
+        paths: ["/consult"]
+        methods: ["GET"]
+        strip_path: false
+      - name: public-webhooks
+        paths: ["/webhooks"]
+        methods: ["POST"]
+        strip_path: false
+%{ if swagger_enabled ~}
+      - name: public-api-docs
+        paths: ["/api-docs"]
+        methods: ["GET"]
+        strip_path: false
+%{ endif ~}
+      - name: protected-api
+        paths:
+          - /clients
+          - /vehicles
+          - /services
+          - /parts
+          - /service-orders
+          - /budgets
+          - /me
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify: [exp]
+      - name: protected-register
+        paths: ["/auth/register"]
+        methods: ["POST"]
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify: [exp]
+
+  - name: auth-cpf
+    url: ${auth_url}
+    routes:
+      - name: public-auth-cpf
+        paths: ["/auth/cpf"]
+        methods: ["POST"]
+        strip_path: true
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
+              limit_by: ip
+%{ if origin_secret != "" ~}
+          - name: request-transformer
+            config:
+              add:
+                headers: ["x-soat-origin:${origin_secret}"]
+%{ endif ~}
+
+# Um consumer por emissor. O plugin jwt escolhe o consumer pelo `iss` do token
+# (key_claim_name) e confere a assinatura com o segredo dele. Os dois usam o
+# mesmo segredo do ambiente; o papel (cliente x admin) quem decide e a app.
+consumers:
+  - username: soat-admins
+    jwt_secrets:
+      - key: soat-app
+        algorithm: HS256
+        secret: ${jwt_secret}
+  - username: soat-clients
+    jwt_secrets:
+      - key: soat-auth-lambda
+        algorithm: HS256
+        secret: ${jwt_secret}

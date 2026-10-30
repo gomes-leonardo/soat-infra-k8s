@@ -1,0 +1,15 @@
+{
+  "issueId": {{json issueId}},
+  "title": {{json annotations.title.[0]}},
+  "state": {{json state}},
+  "priority": {{json priority}},
+  "createdAt": {{#if createdAt}}{{createdAt}}{{else}}null{{/if}},
+  "closedAt": {{#if closedAt}}{{closedAt}}{{else}}null{{/if}},
+  "policy": {{json accumulations.policyName.[0]}},
+  "condition": {{json accumulations.conditionName.[0]}},
+  "tags": {
+    "serviceOrderId": {{json accumulations.tag.serviceOrderId}},
+    "trace_id": {{json accumulations.tag.trace_id}}
+  },
+  "url": {{json issuePageUrl}}
+}

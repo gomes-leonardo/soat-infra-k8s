@@ -1,0 +1,47 @@
+# Copie para terraform.tfvars e ajuste. terraform.tfvars esta no .gitignore.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# Nao existe variavel de senha aqui de proposito: a senha do RDS e gerada por
+# random_password e guardada no Secrets Manager. Nunca escreva segredo neste
+# arquivo.
+
+project     = "soat-tech-challenge"
+environment = "dev"
+region      = "us-east-1"
+
+# Deixe vazio para o Terraform escolher as duas primeiras AZs da regiao.
+# azs = ["us-east-1a", "us-east-1b"]
+
+vpc_cidr = "10.0.0.0/16"
+
+kubernetes_version = "1.31"
+postgres_version   = "16.4"
+
+db_name     = "soat_repair_shop"
+db_username = "soat_app"
+
+# O default deixa o endpoint da API do Kubernetes aberto para a internet, o que
+# e o suficiente para dev e para o pipeline de CD. Em prod, troque pelos IPs de
+# quem realmente precisa (escritorio + runner).
+eks_public_access_cidrs = ["0.0.0.0/0"]
+
+# ---------------------------------------------------------------------------
+# Overrides do perfil do ambiente. Comentados = usa o perfil de `environment`.
+#
+#   dev  -> 2x t3.medium (max 4), db.t3.micro single-AZ, 1 NAT Gateway
+#   prod -> 3x t3.large  (max 10), db.t3.small Multi-AZ, 1 NAT por AZ
+# ---------------------------------------------------------------------------
+
+# node_instance_types = ["t3.medium"]
+# node_desired_size   = 2
+# node_min_size       = 2
+# node_max_size       = 4
+# db_instance_class   = "db.t3.micro"
+
+# SPOT corta ~70% do custo de EC2 e aceita interrupcao. Vale em dev.
+# node_capacity_type = "SPOT"
+
+# extra_tags = {
+#   Owner = "grupo-soat"
+# }
