@@ -2,9 +2,7 @@
 #
 #   cp terraform.tfvars.example terraform.tfvars
 #
-# Nao existe variavel de senha aqui de proposito: a senha do RDS e gerada por
-# random_password e guardada no Secrets Manager. Nunca escreva segredo neste
-# arquivo.
+# O banco desta referencia (RDS) fica em soat-infra-db/reference/aws-rds.
 
 project     = "soat-tech-challenge"
 environment = "dev"
@@ -16,10 +14,7 @@ region      = "us-east-1"
 vpc_cidr = "10.0.0.0/16"
 
 kubernetes_version = "1.31"
-postgres_version   = "16.4"
 
-db_name     = "soat_repair_shop"
-db_username = "soat_app"
 
 # O default deixa o endpoint da API do Kubernetes aberto para a internet, o que
 # e o suficiente para dev e para o pipeline de CD. Em prod, troque pelos IPs de
@@ -37,7 +32,6 @@ eks_public_access_cidrs = ["0.0.0.0/0"]
 # node_desired_size   = 2
 # node_min_size       = 2
 # node_max_size       = 4
-# db_instance_class   = "db.t3.micro"
 
 # SPOT corta ~70% do custo de EC2 e aceita interrupcao. Vale em dev.
 # node_capacity_type = "SPOT"

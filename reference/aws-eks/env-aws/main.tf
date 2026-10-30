@@ -34,12 +34,6 @@ locals {
       node_capacity_type  = "ON_DEMAND"
       node_disk_size      = 20
 
-      db_instance_class      = "db.t3.micro"
-      db_allocated_storage   = 20
-      db_multi_az            = false
-      db_backup_retention    = 1
-      db_deletion_protection = false
-      db_skip_final_snapshot = true
 
       log_retention_days = 7
     }
@@ -53,12 +47,6 @@ locals {
       node_capacity_type  = "ON_DEMAND"
       node_disk_size      = 50
 
-      db_instance_class      = "db.t3.small"
-      db_allocated_storage   = 50
-      db_multi_az            = true
-      db_backup_retention    = 7
-      db_deletion_protection = true
-      db_skip_final_snapshot = false
 
       log_retention_days = 30
     }
@@ -71,7 +59,6 @@ locals {
   node_desired_size   = coalesce(var.node_desired_size, local.profile.node_desired_size)
   node_min_size       = coalesce(var.node_min_size, local.profile.node_min_size)
   node_max_size       = coalesce(var.node_max_size, local.profile.node_max_size)
-  db_instance_class   = coalesce(var.db_instance_class, local.profile.db_instance_class)
   node_capacity_type  = coalesce(var.node_capacity_type, local.profile.node_capacity_type)
 
   cluster_name = "${local.name_prefix}-eks"

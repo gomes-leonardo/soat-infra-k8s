@@ -39,24 +39,6 @@ variable "kubernetes_version" {
   default     = "1.31"
 }
 
-variable "postgres_version" {
-  description = "Versao do PostgreSQL no RDS. Espelha o postgres:16-alpine do docker-compose."
-  type        = string
-  default     = "16.4"
-}
-
-variable "db_name" {
-  description = "Nome do banco criado no RDS."
-  type        = string
-  default     = "soat_repair_shop"
-}
-
-variable "db_username" {
-  description = "Usuario master do RDS. A senha nunca vem daqui — e gerada por random_password e guardada no Secrets Manager."
-  type        = string
-  default     = "soat_app"
-}
-
 variable "eks_public_access_cidrs" {
   description = "CIDRs autorizados a acessar o endpoint publico da API do Kubernetes. Restrinja para o IP do escritorio e o do runner de CI em prod."
   type        = list(string)
@@ -94,12 +76,6 @@ variable "node_max_size" {
 
 variable "node_capacity_type" {
   description = "Override do tipo de capacidade dos nodes. SPOT corta ~70% do custo de EC2 ao preco de interrupcoes — aceitavel em dev, discutivel em prod."
-  type        = string
-  default     = null
-}
-
-variable "db_instance_class" {
-  description = "Override da classe da instancia RDS."
   type        = string
   default     = null
 }

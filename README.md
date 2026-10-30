@@ -45,7 +45,8 @@ O Kong nega por padrão: só existem as rotas declaradas em
 
 - **Públicas:** `/health`, `/auth/login`, `/auth/cpf`, `/consult` e `/webhooks`. O webhook tem
   segredo próprio, conferido pela aplicação.
-- **Com JWT:** todo o resto. O plugin `jwt` identifica o emissor pelo `iss` do token: `soat-app`
+- **Com JWT:** `/clients`, `/vehicles`, `/services`, `/parts`, `/service-orders`, `/budgets`, `/me` e
+  `POST /auth/register`. Qualquer outro caminho recebe 404 do próprio Kong. O plugin `jwt` identifica o emissor pelo `iss` do token: `soat-app`
   para admin e `soat-auth-lambda` para cliente. O papel é conferido pela aplicação.
 - **`/auth/cpf`:** vai para a Lambda de autenticação, com rate limit de 10/min. O Kong apaga o
   header `x-soat-origin` vindo do cliente e põe o segredo de origem, que só ele e a função conhecem.
@@ -89,6 +90,8 @@ O cluster é aplicado em dois passos: primeiro só o `kind_cluster`, depois o re
 kubernetes e helm precisam do contexto `kind-soat`, que só existe depois do primeiro passo.
 
 **Pré-requisitos:**
+- o cluster e a observabilidade de pé: quem os cria é o push em `main` (ou a execução manual
+  abaixo). `develop` só planeja os dois, e o hml pressupõe que já existam;
 - runner self-hosted com label `soat-kind` no Mac onde roda o Docker;
 - variável `AWS_ROLE_ARN`, criada pelo bootstrap do `soat-auth-lambda`;
 - Environments `hml` e `prd`, presos às branches `develop` e `main`.
@@ -97,7 +100,7 @@ kubernetes e helm precisam do contexto `kind-soat`, que só existe depois do pri
 |---|---|---|
 | `AWS_ROLE_ARN` | variável do repositório | state no S3 e SSM |
 | `AUTH_MODE`, `AUTH_FUNCTION_URL` | variáveis de cada Environment | `lambda` + Function URL depois do deploy do `soat-auth-lambda` |
-| `NEW_RELIC_ENABLED` | variável do repositório | `true` liga o export e os jobs do New Relic |
+| `NEW_RELIC_ENABLED` | variável do **repositório** (não do Environment: o `if:` do job não enxerga variável de Environment) | `true` liga o export e os jobs do New Relic |
 | `NEW_RELIC_ACCOUNT_ID` | variável do repositório | conta do New Relic |
 | `NEW_RELIC_LICENSE_KEY`, `NEW_RELIC_API_KEY` | secrets do repositório | ingestão (collector) e API (alertas e dashboards) |
 
@@ -136,3 +139,14 @@ bash scripts/check-kong-config.sh   # valida o kong.yml renderizado com a imagem
 - Postman: [docs/postman-collection.json](https://github.com/gomes-leonardo/fiap-software-architecture/blob/main/docs/postman-collection.json)
 - Deploys: o resumo de cada run em *Actions*. Gateways locais em `http://127.0.0.1:18080` (prd) e
   `http://127.0.0.1:18081` (hml).
+
+### Antes do primeiro push em develop
+
+Os testes locais criaram recursos em `soat-hml` com state em `~/.soat-tfstate/test-*.tfstate`
+(via `backend_override.tf`, fora do Git). Antes do primeiro pipeline, destrua-os ou migre o state
+para o S3, ou o apply do hml falha com `already exists`:
+
+```bash
+terraform -chdir=gateway destroy -var environment=hml   # com o override ainda presente
+rm gateway/backend_override.tf
+```
