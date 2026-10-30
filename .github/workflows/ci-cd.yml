@@ -1,0 +1,192 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+env:
+  TF_VERSION: 1.10.5
+  STATE_BUCKET: tfstate-backend-fiap-leo
+
+jobs:
+  validate:
+    name: Terraform validate e Kong config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive
+      - name: Validate
+        run: |
+          for root in cluster gateway observability newrelic reference/aws-eks/network reference/aws-eks/k8s reference/aws-eks/env-aws; do
+            terraform -chdir=$root init -backend=false -input=false
+            terraform -chdir=$root validate
+          done
+      - name: kong config parse (modos local e lambda)
+        run: bash scripts/check-kong-config.sh
+
+  # O cluster e um so para os dois ambientes e vive no Docker do runner do Mac.
+  # O state fica na propria maquina (backend local). Primeiro o cluster, depois
+  # o resto: o provider kubernetes precisa do contexto kind-soat ja existente.
+  cluster:
+    name: Cluster Kind (${{ github.ref_name == 'main' && 'apply' || 'plan' }})
+    needs: [validate]
+    if: github.event_name == 'push'
+    runs-on: [self-hosted, soat-kind]
+    concurrency: soat-cluster
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - name: Init
+        working-directory: cluster
+        run: terraform init -input=false -backend-config="path=$HOME/.soat-tfstate/cluster.tfstate"
+      - name: Plan
+        if: github.ref_name != 'main'
+        working-directory: cluster
+        run: terraform plan -input=false -lock-timeout=5m
+      - name: Apply
+        if: github.ref_name == 'main'
+        working-directory: cluster
+        run: |
+          terraform apply -input=false -auto-approve -lock-timeout=5m -target=kind_cluster.this
+          terraform apply -input=false -auto-approve -lock-timeout=5m
+
+  # Collector unico no namespace observability. develop so planeja; main aplica.
+  observability:
+    name: Observabilidade (${{ github.ref_name == 'main' && 'apply' || 'plan' }})
+    needs: [cluster]
+    if: github.event_name == 'push'
+    runs-on: [self-hosted, soat-kind]
+    environment: ${{ github.ref_name == 'main' && 'prd' || 'hml' }}
+    concurrency: soat-observability
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      TF_VAR_newrelic_enabled: ${{ vars.NEW_RELIC_ENABLED == 'true' }}
+      TF_VAR_newrelic_license_key: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+    steps:
+      - name: Conferir configuracao
+        run: |
+          if [ -z "$AWS_ROLE_ARN" ]; then
+            echo "::error title=Sem configuracao::falta a variavel AWS_ROLE_ARN (ver README)"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: sa-east-1
+      - name: Init
+        working-directory: observability
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="key=soat-infra-k8s/observability/terraform.tfstate"
+      - name: Plan
+        if: github.ref_name != 'main'
+        working-directory: observability
+        run: terraform plan -input=false -lock-timeout=5m
+      - name: Apply
+        if: github.ref_name == 'main'
+        working-directory: observability
+        run: terraform apply -input=false -auto-approve -lock-timeout=5m
+
+  # develop -> hml, main -> prd. Cada ambiente tem o proprio Kong e o proprio JWT.
+  gateway:
+    name: Gateway (${{ github.ref_name == 'main' && 'prd' || 'hml' }})
+    needs: [cluster]
+    if: github.event_name == 'push'
+    runs-on: [self-hosted, soat-kind]
+    environment: ${{ github.ref_name == 'main' && 'prd' || 'hml' }}
+    concurrency: gateway-${{ github.ref_name }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_ENV: ${{ github.ref_name == 'main' && 'prd' || 'hml' }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      TF_VAR_auth_mode: ${{ vars.AUTH_MODE || 'local' }}
+      TF_VAR_auth_function_url: ${{ vars.AUTH_FUNCTION_URL }}
+    steps:
+      - name: Conferir configuracao
+        run: |
+          if [ -z "$AWS_ROLE_ARN" ]; then
+            echo "::error title=Sem configuracao::falta a variavel AWS_ROLE_ARN (ver README)"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: sa-east-1
+      - name: Terraform apply
+        working-directory: gateway
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="key=soat-infra-k8s/gateway/${TF_ENV}/terraform.tfstate"
+          terraform apply -input=false -auto-approve -lock-timeout=5m -var "environment=${TF_ENV}"
+      - name: Smoke pelo Kong
+        run: |
+          port=$([ "$TF_ENV" = prd ] && echo 18080 || echo 18081)
+          for i in $(seq 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${port}/health" || true)
+            [ "$code" = 200 ] && { echo "Kong ${TF_ENV}: /health 200"; exit 0; }
+            sleep 5
+          done
+          echo "::warning title=Kong sem app::/health nao respondeu 200 em ${port} (o app pode ainda nao estar implantado)"
+
+  # Alertas e dashboards no New Relic. So depois da ativacao da conta
+  # (vars.NEW_RELIC_ENABLED = true); antes disso o validate ja cobre o codigo.
+  newrelic:
+    name: New Relic (${{ github.ref_name == 'main' && 'prd' || 'hml' }})
+    needs: [validate]
+    if: github.event_name == 'push' && vars.NEW_RELIC_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'prd' || 'hml' }}
+    concurrency: newrelic-${{ github.ref_name }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_ENV: ${{ github.ref_name == 'main' && 'prd' || 'hml' }}
+      TF_VAR_newrelic_account_id: ${{ vars.NEW_RELIC_ACCOUNT_ID }}
+      TF_VAR_newrelic_api_key: ${{ secrets.NEW_RELIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: sa-east-1
+      - name: Terraform apply
+        working-directory: newrelic
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="key=soat-infra-k8s/newrelic/${TF_ENV}/terraform.tfstate"
+          terraform apply -input=false -auto-approve -lock-timeout=5m -var "environment=${TF_ENV}"

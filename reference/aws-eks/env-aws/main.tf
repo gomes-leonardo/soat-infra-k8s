@@ -78,7 +78,7 @@ locals {
 }
 
 module "network" {
-  source = "../../modules/network"
+  source = "../network"
 
   name_prefix          = local.name_prefix
   cluster_name         = local.cluster_name
@@ -92,7 +92,7 @@ module "network" {
 }
 
 module "k8s" {
-  source = "../../modules/k8s"
+  source = "../k8s"
 
   cluster_name       = local.cluster_name
   kubernetes_version = var.kubernetes_version
@@ -115,28 +115,4 @@ module "k8s" {
   tags = local.common_tags
 }
 
-module "database" {
-  source = "../../modules/database"
-
-  identifier         = "${local.name_prefix}-pg"
-  vpc_id             = module.network.vpc_id
-  private_subnet_ids = module.network.private_subnet_ids
-
-  # O unico caminho aberto ate a porta 5432 e o security group dos nodes do
-  # EKS. Nao ha CIDR liberado, nem endereco publico.
-  allowed_security_group_ids = [module.k8s.cluster_security_group_id]
-
-  engine_version    = var.postgres_version
-  instance_class    = local.db_instance_class
-  allocated_storage = local.profile.db_allocated_storage
-  multi_az          = local.profile.db_multi_az
-
-  db_name     = var.db_name
-  db_username = var.db_username
-
-  backup_retention_days = local.profile.db_backup_retention
-  deletion_protection   = local.profile.db_deletion_protection
-  skip_final_snapshot   = local.profile.db_skip_final_snapshot
-
-  tags = local.common_tags
-}
+# O banco desta referencia (RDS) fica em soat-infra-db/reference/aws-rds.

@@ -48,51 +48,6 @@ output "oidc_provider_arn" {
 # Banco.
 # ---------------------------------------------------------------------------
 
-output "db_endpoint" {
-  description = "Endpoint do RDS no formato host:porta."
-  value       = module.database.db_endpoint
-}
-
-output "db_address" {
-  description = "Hostname do RDS. Valor de DB_HOST."
-  value       = module.database.db_address
-}
-
-output "db_port" {
-  description = "Porta do Postgres. Valor de DB_PORT."
-  value       = module.database.db_port
-}
-
-output "db_name" {
-  description = "Nome do banco. Valor de DB_NAME."
-  value       = module.database.db_name
-}
-
-output "db_username" {
-  description = "Usuario do banco. Valor de DB_USER."
-  value       = module.database.db_username
-}
-
-output "db_secret_arn" {
-  description = "ARN do segredo no Secrets Manager com DB_HOST, DB_PORT, DB_NAME, DB_USER e DB_PASS."
-  value       = module.database.db_secret_arn
-}
-
-output "db_secret_name" {
-  description = "Nome do segredo no Secrets Manager."
-  value       = module.database.db_secret_name
-}
-
-output "db_password" {
-  description = "Senha do banco. Marcada como sensivel: use `terraform output -raw db_password` ou, de preferencia, leia do Secrets Manager."
-  value       = module.database.db_password
-  sensitive   = true
-}
-
-# ---------------------------------------------------------------------------
-# Rede.
-# ---------------------------------------------------------------------------
-
 output "vpc_id" {
   description = "Id da VPC."
   value       = module.network.vpc_id
