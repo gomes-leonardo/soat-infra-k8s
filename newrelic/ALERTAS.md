@@ -53,7 +53,11 @@ for i in $(seq 6); do
   curl -s -o /dev/null -w '%{http_code}\n' -X POST localhost:18081/webhooks/service-orders/$OS/status \
     -H 'Authorization: Bearer errado' -H 'Content-Type: application/json' -d '{"status":"EM_DIAGNOSTICO"}'
 done
-# 4: tres transicoes ilegais na mesma OS (ex.: RECEBIDA -> FINALIZADA)
+# 4: tres transicoes ilegais na mesma OS, RECEBIDA -> FINALIZADA (token de admin em $ADMIN)
+for i in 1 2 3; do
+  curl -s -o /dev/null -w '%{http_code}\n' -X PATCH localhost:18081/service-orders/$OS/status \
+    -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' -d '{"status":"FINALIZADA"}'
+done
 ```
 
 ## Conferências na ativação
