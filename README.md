@@ -126,17 +126,17 @@ terraform -chdir=cluster apply -target=kind_cluster.this
 terraform -chdir=cluster apply
 
 terraform -chdir=gateway init \
-  -backend-config="bucket=soat-tfstate-933643054958" \
+  -backend-config="bucket=soat-tfstate-310626828604" \
   -backend-config="key=soat-infra-k8s/gateway/hml/terraform.tfstate"
 terraform -chdir=gateway apply -var environment=hml
 
 terraform -chdir=observability init \
-  -backend-config="bucket=soat-tfstate-933643054958" \
+  -backend-config="bucket=soat-tfstate-310626828604" \
   -backend-config="key=soat-infra-k8s/observability/terraform.tfstate"
 TF_VAR_newrelic_enabled=true TF_VAR_newrelic_license_key=... terraform -chdir=observability apply
 
 terraform -chdir=newrelic init \
-  -backend-config="bucket=soat-tfstate-933643054958" \
+  -backend-config="bucket=soat-tfstate-310626828604" \
   -backend-config="key=soat-infra-k8s/newrelic/hml/terraform.tfstate"
 TF_VAR_newrelic_account_id=... TF_VAR_newrelic_api_key=... \
   terraform -chdir=newrelic apply -var environment=hml
