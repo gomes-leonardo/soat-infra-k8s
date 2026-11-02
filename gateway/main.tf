@@ -139,6 +139,12 @@ resource "kubernetes_deployment" "kong" {
             name  = "KONG_PREFIX"
             value = "/kong-prefix"
           }
+          # O padrao e um worker por CPU do no, e o no do Kind enxerga todas as
+          # CPUs do Mac: com 10 workers o pod passa do limite de 256Mi.
+          env {
+            name  = "KONG_NGINX_WORKER_PROCESSES"
+            value = "2"
+          }
 
           port {
             name           = "proxy"

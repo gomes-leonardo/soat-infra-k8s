@@ -11,7 +11,7 @@ permissions:
 
 env:
   TF_VERSION: 1.10.5
-  STATE_BUCKET: tfstate-backend-fiap-leo
+  STATE_BUCKET: soat-tfstate-310626828604
 
 jobs:
   validate:

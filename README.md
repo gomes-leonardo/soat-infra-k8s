@@ -33,7 +33,7 @@ flowchart LR
 | Diretório | O que cria | State |
 |---|---|---|
 | `cluster/` | Cluster Kind `soat` (1 control-plane + 1 worker), namespaces `soat-hml`, `soat-prd` e `observability`, ResourceQuota e LimitRange por ambiente, metrics-server para o HPA | local, na máquina do runner |
-| `gateway/` | Por ambiente: Kong DB-less em NodePort, segredo JWT (Secret `soat-jwt`, SSM e consumers do Kong) | S3 |
+| `gateway/` | Por ambiente: Kong DB-less em NodePort, segredo JWT (Secret `soat-jwt`, SSM e consumers do Kong) e, no modo `lambda`, o segredo de origem lido do SSM | S3 |
 | `observability/` | OpenTelemetry Collector em dois papéis (agent DaemonSet e gateway) e Jaeger | S3 |
 | `newrelic/` | Por ambiente: dashboards de negócio e de operação, 5 alertas e o webhook para o notifier | S3 |
 | `reference/aws-eks/` | **Referência, nunca aplicada:** o mesmo desenho em EKS, que custaria dinheiro | — |
@@ -126,9 +126,20 @@ terraform -chdir=cluster apply -target=kind_cluster.this
 terraform -chdir=cluster apply
 
 terraform -chdir=gateway init \
-  -backend-config="bucket=tfstate-backend-fiap-leo" \
+  -backend-config="bucket=soat-tfstate-310626828604" \
   -backend-config="key=soat-infra-k8s/gateway/hml/terraform.tfstate"
 terraform -chdir=gateway apply -var environment=hml
+
+terraform -chdir=observability init \
+  -backend-config="bucket=soat-tfstate-310626828604" \
+  -backend-config="key=soat-infra-k8s/observability/terraform.tfstate"
+TF_VAR_newrelic_enabled=true TF_VAR_newrelic_license_key=... terraform -chdir=observability apply
+
+terraform -chdir=newrelic init \
+  -backend-config="bucket=soat-tfstate-310626828604" \
+  -backend-config="key=soat-infra-k8s/newrelic/hml/terraform.tfstate"
+TF_VAR_newrelic_account_id=... TF_VAR_newrelic_api_key=... \
+  terraform -chdir=newrelic apply -var environment=hml
 
 bash scripts/check-kong-config.sh   # valida o kong.yml renderizado com a imagem kong:3.9
 ```
@@ -137,16 +148,6 @@ bash scripts/check-kong-config.sh   # valida o kong.yml renderizado com a imagem
 
 - Swagger da API: [docs/swagger.json](https://github.com/gomes-leonardo/fiap-software-architecture/blob/main/docs/swagger.json)
 - Postman: [docs/postman-collection.json](https://github.com/gomes-leonardo/fiap-software-architecture/blob/main/docs/postman-collection.json)
-- Deploys: o resumo de cada run em *Actions*. Gateways locais em `http://127.0.0.1:18080` (prd) e
-  `http://127.0.0.1:18081` (hml).
-
-### Antes do primeiro push em develop
-
-Os testes locais criaram recursos em `soat-hml` com state em `~/.soat-tfstate/test-*.tfstate`
-(via `backend_override.tf`, fora do Git). Antes do primeiro pipeline, destrua-os ou migre o state
-para o S3, ou o apply do hml falha com `already exists`:
-
-```bash
-terraform -chdir=gateway destroy -var environment=hml   # com o override ainda presente
-rm gateway/backend_override.tf
-```
+- Deploys: o resumo de cada run nas [execuções do Actions](https://github.com/gomes-leonardo/soat-infra-k8s/actions).
+  Não há URL pública: por custo zero, o cluster é um Kind no Mac do projeto, e os gateways ficam em
+  `http://127.0.0.1:18080` (prd) e `http://127.0.0.1:18081` (hml).
